@@ -7,3 +7,6 @@
 + EPA-NG
 + GAPPA
 + MAFFT
++ codonbias
++ Scikit-Learn
++ Pandas
