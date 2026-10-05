@@ -31,8 +31,6 @@ from Bio import SeqIO
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import RobustScaler
 
-fasta_file = '/home/xyrus/Desktop/Contamination_Tests/Durinskia_baltica.Diag_Gene_Families.Diag_ORFs.fasta'
-
 
 def calc_gc3_degen(seq: str):
     degen_codons = ['CT', 'GT','TC','CC','AC','GC','CG','GG']
@@ -184,6 +182,7 @@ if __name__ == '__main__':
     try:
         fasta_file = sys.argv[1]
     except:
+        print('Usage:\n\n python3 seq_compy_contam.py [FASTA-FILE]\n')
         sys.exit(1)
 
     calc_comp_stats(fasta_file)
