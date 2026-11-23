@@ -4,6 +4,8 @@ from ete4 import NCBITaxa
 from pathlib import Path
 
 
+ncbi = NCBITaxa()
+
 def make_unclassified(label: str) -> str:
     if label.startswith('Unclassified_'):
         return label
@@ -150,12 +152,9 @@ def prep_deep_taxonomy(
             "Eukaryota_incertae_sedis")
 
         if supergroup != "Eukaryota_incertae_sedis":
-            raw_subgroup = next(
+            subgroup = next(
                 (valid_subgroups[lineage_name] for lineage_name in reversed(all_lineage_names) if lineage_name in valid_subgroups),
                 None)
-
-            if raw_subgroup:
-                subgroup = sanitize_taxon_name(raw_subgroup)
 
     elif domain in ['Bacteria', 'Archaea']:
         # add the "Kingdom" level in place of supergroup for prokaryotes
@@ -213,17 +212,13 @@ def get_reduced_taxonomy(
     return ";".join(reduced_taxonomy)
 
 
-def check_prokaryotic(taxon_name):
-
-
-
 def get_ncbi_txmy(
         taxon_list: list,
         include_species: bool = False,
         eukaryotic: bool = True):
 
     txnmy_db = {}
-    ncbi = NCBITaxa()
+
 
     if not Path(f'{Path.home()}/.local/share/ete/taxdump.tar.gz').is_file():
         print('oh-no, missing NCBI taxonomy database!')

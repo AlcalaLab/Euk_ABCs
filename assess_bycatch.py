@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
 
 """
-'Master' script to control the contamination pipeline!
+'Master' script to control the assessing bycatch pipeline!
 """
 
 import glob, os, subprocess, sys, time
 
-from bin import phylo_contam_args as pea
-from bin import prep_query_contam as pqc
-from bin import prep_phylo_tree_contam as ptc
-from bin import eval_phylo_contam as epc
+from bin import bycatch_args as bca
+from bin import prep_query_bycatch as pqb
+from bin import prep_phylo_bycatch as ppb
+from bin import eval_phylo_bycatch_new as epb
+from bin import seq_comp_bycatch as scb
 
 from datetime import timedelta
 from pathlib import Path
 
 
+# epb.check_me()
+
 def eval_args(args):
-    if not pea.double_check_args(args):
+    if not bca.double_check_args(args):
         sys.exit(1)
 
     else:
@@ -40,7 +43,7 @@ def prep_query_data(
     print('#--------------- Preparing Query Data ---------------#')
     print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Removing short transcripts')
 
-    sfilt_fasta = pqc.remove_short_seqs(
+    sfilt_fasta = pqb.remove_short_seqs(
                         fasta_file,
                         taxon_name,
                         outdir,
@@ -48,7 +51,7 @@ def prep_query_data(
 
 
     print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Removing rRNA sequence by-catch')
-    rrna_fasta = pqc.remove_rrna_seqs(
+    rrna_fasta = pqb.remove_rrna_seqs(
                         sfilt_fasta,
                         taxon_name,
                         backup_dir,
@@ -56,7 +59,7 @@ def prep_query_data(
                         threads)
 
     print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Assigning sequences to diagnostic gene families')
-    orfs_by_gf = pqc.assign_diag_gene_families(
+    orfs_by_gf = pqb.assign_diag_gene_families(
                         rrna_fasta,
                         taxon_name,
                         prot_db,
@@ -66,7 +69,7 @@ def prep_query_data(
                         threads)
 
     print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Finalizing ORF calls')
-    fin_prep_dir, query_seqs = pqc.finalize_query_orfs(
+    fin_prep_dir, query_seqs = pqb.finalize_query_orfs(
                                     prot_db,
                                     orfs_by_gf,
                                     outdir,
@@ -76,11 +79,13 @@ def prep_query_data(
 
     try:
         Path(sfilt_fasta).unlink()
+
     except FileNotFoundError:
         pass
 
     try:
         Path(f'{sfilt_fasta}.fai').unlink()
+
     except FileNotFoundError:
         pass
 
@@ -103,7 +108,7 @@ def update_phylo_data(
         ):
 
     print('\n#---- Preparing Query Alignments and Phylogenies ----#')
-    updated_phylos = ptc.all_query_aln(
+    diag_db = ppb.prep_all_query_aln(
                         start_time,
                         outdir,
                         unaln_dir,
@@ -114,7 +119,15 @@ def update_phylo_data(
                         threads
                         )
 
-    epc.summarize_eval_phylo(
+    updated_phylos = ppb.seqs_to_tree(
+                            start_time,
+                            outdir,
+                            diag_db,
+                            threads
+                            )
+
+    # sys.exit()
+    epb.summarize_eval_phylo(
             start_time,
             backup_dir,
             outdir,
@@ -125,8 +138,33 @@ def update_phylo_data(
             eval_mode
             )
 
+    sys.exit()
 
-def phylo_eval_contam(
+def comp_eval_bycatch(
+        start_time,
+        taxon_name: str,
+        outdir: str,
+        backup_dir: str,
+        threads: int = 4):
+
+    diag_orf_fasta = f'{outdir}Data_Preparation/ORF_Calling/{taxon_name}.Diag_Gene_Families.Diag_ORFs.fasta'
+
+    scomp_dir = f'{outdir}Sequence_Composition/'
+
+    scomp_backup_dir = f'{backup_dir}SeqComp_ByCatch/'
+
+    Path(scomp_dir).mkdir(exist_ok = True, parents = True)
+    Path(f'{scomp_backup_dir}SeqComp_Spreadsheets/').mkdir(exist_ok = True, parents = True)
+    Path(f'{scomp_backup_dir}SeqComp_PNGs/').mkdir(exist_ok = True, parents = True)
+
+    scb.calc_comp_stats(
+            diag_orf_fasta,
+            scomp_dir,
+            scomp_backup_dir,
+            start_time)
+
+
+def phylo_eval_bycatch(
         init_outdir: str,
         fasta_file: str,
         taxon_name: str,
@@ -138,7 +176,8 @@ def phylo_eval_contam(
         approach: str = 'phylo',
         min_len: int = 300,
         threads: int = 4,
-        gcode: int = 1
+        gcode: int = 1,
+        gzip: bool = False
     ) -> None:
 
     start_time = time.time()
@@ -146,12 +185,12 @@ def phylo_eval_contam(
     if taxon_code:
         taxon_name = f'{taxon_name}_{taxon_code}'
 
-    outdir = f'{taxon_name}_Contam_Eval/'
-    backup_dir = 'Phylo_Contam_Backup/'
+    outdir = f'{taxon_name}_ByCatch_Eval/'
+    backup_dir = 'Phylo_ByCatch_Backup/'
 
     if init_outdir:
-        backup_dir = f'{init_outdir}_Contam_Eval/Phylo_Contam_Backup/'
-        outdir = f'{init_outdir.rstrip("/")}_Contam_Eval/{taxon_name}_Contam_Eval/'
+        backup_dir = f'{init_outdir}_ByCatch_Eval/Phylo_ByCatch_Backup/'
+        outdir = f'{init_outdir.rstrip("/")}_ByCatch_Eval/{taxon_name}_ByCatch_Eval/'
 
     if glob.glob(f'{outdir}*.tar.gz'):
         print('\n#----------------------------------------------------#')
@@ -186,31 +225,40 @@ def phylo_eval_contam(
             ref_aln_dir,
             ref_tree_dir,
             delim,
-            threads
-            )
+            threads)
+
+        print('\n#----- Starting Sequence-Composition Assessment -----#')
+
+        comp_eval_bycatch(
+            start_time,
+            taxon_name,
+            outdir,
+            backup_dir,
+            threads)
 
         print('\n#----------------------------------------------------#')
-        print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Finished phylogeny-based assessment of {taxon_name}')
+        print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Finished by-catch assessment of {taxon_name}')
         print('#----------------------------------------------------#')
 
-        subprocess.run(
-            f'tar -zcvf {outdir.rstrip("/")}.tar.gz -C {outdir} .',
-            shell = True,
-            stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE
-            )
 
-        os.system(f'rm -rf {outdir}')
+        if gzip:
+            subprocess.run(
+                f'tar -zcvf {outdir.rstrip("/")}.tar.gz -C {outdir} .',
+                shell = True,
+                stdout = subprocess.PIPE,
+                stderr = subprocess.PIPE
+                )
 
-        print('\n#----------------------------------------------------#')
-        print(f"[{timedelta(seconds = round(time.time()-start_time))}]  Finished compressing {taxon_name}'s phylogeny-based assessment data")
-        print('#----------------------------------------------------#')
+            os.system(f'rm -rf {outdir}')
 
+            print('\n#----------------------------------------------------#')
+            print(f"[{timedelta(seconds = round(time.time()-start_time))}]  Finished compressing {taxon_name}'s phylogeny-based assessment data")
+            print('#----------------------------------------------------#')
 
 
 if __name__ == '__main__':
 
-    args = eval_args(pea.capture_args())
+    args = eval_args(bca.capture_args())
 
     print('NEED A FUNCTION TO CHECK THE FOLDER PATHS!!!! make sure that the ref-msa and ref-tree folders are there!')
 
@@ -233,10 +281,11 @@ if __name__ == '__main__':
     if Path(args.input).is_file():
         if not args.taxon_name:
             args.taxon_name = args.input.rpartition("/")[-1].partition(".")[0]
+
         else:
             args.taxon_name = '_'.join(args.taxon_name)
 
-        phylo_eval_contam(
+        phylo_eval_bycatch(
             args.out_dir,
             args.input,
             args.taxon_name,
@@ -248,12 +297,12 @@ if __name__ == '__main__':
             args.approach,
             300,
             args.threads,
-            1
-            )
+            1,
+            args.gzip)
 
     elif Path(args.input).is_dir():
 
-        query_fasta_files = glob.glob(f'{args.input}*fasta')
+        query_fasta_files = glob.glob(f'{args.input}/*fasta')
         print(len(query_fasta_files))
 
         if not query_fasta_files:
@@ -274,7 +323,7 @@ if __name__ == '__main__':
 
         for fasta_file in query_fasta_files:
             taxon_name = fasta_file.rpartition("/")[-1].partition(".")[0]
-            phylo_eval_contam(
+            phylo_eval_bycatch(
                 args.out_dir,
                 fasta_file,
                 taxon_name,
@@ -286,8 +335,9 @@ if __name__ == '__main__':
                 args.approach,
                 300,
                 args.threads,
-                1
-                )
+                1,
+                args.gzip)
+
     else:
         print(f'\nError: Cannot find {args.input}. Double check the given PATH\n')
         sys.exit(1)

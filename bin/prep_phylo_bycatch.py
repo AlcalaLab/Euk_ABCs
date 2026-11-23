@@ -56,7 +56,7 @@ def query_to_aln(
                 f'--keeplength {ref_aln_fasta} ' \
                 f'> {out_aln_fasta}'
 
-    if not (Path(out_aln_fasta).is_file() and Path(out_aln_fasta).stat().st_size > 0):
+    if not check_file_exists(out_aln_fasta):
         subprocess.run(
             mafft_cmd,
             shell = True,
@@ -142,7 +142,8 @@ def seqs_to_ref_tree(
     #             f'-x {query_aln} ' \
     #             f'-o {out_jplace}'
 
-    epang_cmd = 'epa-ng -m LG ' \
+    epang_cmd = 'epa-ng ' \
+                '-m LG ' \
                 f'-T {threads} ' \
                 f'-t {ref_tree} ' \
                 f'-s {ref_msa} ' \
@@ -157,17 +158,10 @@ def seqs_to_ref_tree(
                 f'--jplace-path {jplace_dir}{out_jplace} ' \
                 f'--out-dir {updated_tree_dir}'
 
-    if not (Path(out_newick).is_file() and Path(out_newick).stat().st_size > 0):
+    if not check_file_exists(f'{updated_tree_dir}{out_newick}'):
 
         subprocess.run(
             epang_cmd,
-            shell = True,
-            stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE
-            )
-
-        subprocess.run(
-            f'mv {jplace_dir}epa_result.jplace {jplace_dir}{out_jplace}',
             shell = True,
             stdout = subprocess.PIPE,
             stderr = subprocess.PIPE
@@ -182,7 +176,7 @@ def seqs_to_ref_tree(
             stderr = subprocess.PIPE
             )
 
-    return out_newick
+    return f'{jplace_dir}{out_jplace}', f'{updated_tree_dir}{out_newick}'
 
 
 def seqs_to_tree(
@@ -192,7 +186,7 @@ def seqs_to_tree(
         threads: int = 4
         ):
 
-    updated_phylos = []
+    updated_phylos = {}
 
     for k, v in diag_db.items():
         # print(k, v)
@@ -202,14 +196,13 @@ def seqs_to_tree(
             sys.exit()
 
         print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Updated {len(updated_phylos)} of {len(diag_db)} Reference Phylogenies', end = '\r')
-        updated_phylos.append(
-                seqs_to_ref_tree(
-                outdir,
-                v[-1],
-                v[1],
-                v[2],
-                threads)
-                )
+        updated_phylos[k] = seqs_to_ref_tree(
+                                outdir,
+                                v[-1],
+                                v[1],
+                                v[2],
+                                threads
+                                )
 
     print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Updated {len(updated_phylos)} of {len(diag_db)} Reference Phylogenies')
 
