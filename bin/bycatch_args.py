@@ -2,14 +2,13 @@ import argparse, sys
 
 def capture_args():
     # create the top-level parser
-    gen_descript = 'Something goes here...\n\nUsage:\n     UPDATE! phyg.py <module> <options>\n\n' \
-        'To see module options:\n     phyg.py <module> -h'
+    gen_descript = '\nUsage:\n     assess_bycatch.py [options] --in [FASTA file]' \
+    ' --taxon-name [taxon name]\n'
 
-    parser = argparse.ArgumentParser(description = gen_descript,
+    parser = argparse.ArgumentParser(description = ascii_logo_vsn() + gen_descript,
             usage = argparse.SUPPRESS, add_help = False,
             formatter_class = argparse.RawDescriptionHelpFormatter)
 
-    # parser.add_argument('--help', '-h', action = "help", help = argparse.SUPPRESS)
     parser.add_argument('--version', action = 'store_true', help = argparse.SUPPRESS)
 
     contam = parser.add_argument_group('General Contamination Options', description = (
@@ -81,8 +80,8 @@ def capture_args():
     contam.add_argument('--gzip', '-gz', action = 'store_true', help = argparse.SUPPRESS)
 
     if len(sys.argv) == 1:
-#     print(ascii_logo_vsn())
-        parser.print_help()
+        print(ascii_logo_descript())
+        print(gen_descript)
         sys.exit(0)
 
     args = parser.parse_args()
@@ -119,3 +118,21 @@ def double_check_args(args):
         return False
     else:
         return True
+
+def ascii_logo_vsn():
+    ascii_logo = r"""
+      ___     _        _   ___  ___
+     | __|  _| |_____ /_\ | _ )/ __|___
+     | _| || | / /___/ _ \| _ \ (__(_-<
+     |___\_,_|_\_\  /_/ \_\___/\___/__/
+
+      Version 0.2.0
+    """
+    return ascii_logo
+
+def ascii_logo_descript():
+    descript = '      Euk-ABCs uses fast phylogenomic and sequence composition\n' \
+        '      analyses to faciliate the identification of sequenced\n' \
+        '      and assembled by-catch from eukaryotic transcriptomes.'
+
+    return f'{ascii_logo_vsn()}\n{descript}'
