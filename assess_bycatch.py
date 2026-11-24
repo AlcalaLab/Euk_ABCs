@@ -9,7 +9,7 @@ import glob, os, subprocess, sys, time
 from bin import bycatch_args as bca
 from bin import prep_query_bycatch as pqb
 from bin import prep_phylo_bycatch as ppb
-from bin import eval_phylo_bycatch_new as epb
+from bin import eval_phylo_bycatch as epb
 from bin import seq_comp_bycatch as scb
 
 from datetime import timedelta
@@ -119,24 +119,22 @@ def update_phylo_data(
                         threads
                         )
 
-    updated_phylos = ppb.seqs_to_tree(
+    updated_jplace = ppb.seqs_to_tree(
                             start_time,
                             outdir,
                             diag_db,
                             threads
                             )
 
+    # print(updated_jplace)
     # sys.exit()
     epb.summarize_eval_phylo(
             start_time,
             backup_dir,
             outdir,
-            updated_phylos,
+            updated_jplace,
             taxon_name,
-            delim,
-            blen_mode,
-            eval_mode
-            )
+            delim)
 
     sys.exit()
 

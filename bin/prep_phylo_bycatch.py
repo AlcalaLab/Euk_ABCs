@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import glob, os, subprocess, sys, time
-
 """
 All the steps to prepare the data to assess for phylogeny-based by-catch, from the
 previously prepared FASTA file.
@@ -16,14 +14,7 @@ Needs:
 - EPA-ng
 - GAPPA
 """
-# import argparse
-# from collections import Counter
-#
-# import re
-# from typing import Dict, List, Optional, Tuple
-
-# import numpy as np
-# import pandas as pd
+import glob, os, subprocess, sys, time
 
 from datetime import timedelta
 from pathlib import Path
@@ -61,8 +52,7 @@ def query_to_aln(
             mafft_cmd,
             shell = True,
             stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE
-            )
+            stderr = subprocess.PIPE)
 
     query_seqs = [i for i in SeqIO.parse(out_aln_fasta, 'fasta') if i.id in query_seqs]
 
@@ -102,13 +92,13 @@ def prep_all_query_aln(
 
     for k, v in diag_db.items():
         print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Updated {with_updated_aln} of {len(diag_db)} Reference Alignments', end = '\r')
+
         query_aln = query_to_aln(
                         v[0],
                         v[1],
                         outdir,
                         query_seqs,
-                        threads
-                        )
+                        threads)
 
         diag_db[k].append(query_aln)
         with_updated_aln += 1
@@ -124,7 +114,7 @@ def seqs_to_ref_tree(
         ref_msa: str,
         ref_tree: str,
         threads: int = 4
-    ) -> str:
+        ) -> str:
 
     updated_tree_dir = f'{outdir}Phylogeny_Based/Updated_Phylogenies/'
     jplace_dir = f'{outdir}Phylogeny_Based/JPlace_Files/'
@@ -158,25 +148,25 @@ def seqs_to_ref_tree(
                 f'--jplace-path {jplace_dir}{out_jplace} ' \
                 f'--out-dir {updated_tree_dir}'
 
-    if not check_file_exists(f'{updated_tree_dir}{out_newick}'):
 
+    if not check_file_exists(f'{jplace_dir}{out_jplace}'):
         subprocess.run(
             epang_cmd,
             shell = True,
             stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE
-            )
+            stderr = subprocess.PIPE)
 
         os.system(f'rm {jplace_dir}epa_*log')
+        os.system(f'mv {jplace_dir}epa_result.jplace {jplace_dir}{out_jplace}')
 
+    if not check_file_exists(f'{updated_tree_dir}{out_newick}'):
         subprocess.run(
             gappa_cmd,
             shell = True,
             stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE
-            )
+            stderr = subprocess.PIPE)
 
-    return f'{jplace_dir}{out_jplace}', f'{updated_tree_dir}{out_newick}'
+    return f'{jplace_dir}{out_jplace}'
 
 
 def seqs_to_tree(
@@ -186,7 +176,7 @@ def seqs_to_tree(
         threads: int = 4
         ):
 
-    updated_phylos = {}
+    updated_jplace = {}
 
     for k, v in diag_db.items():
         # print(k, v)
@@ -195,8 +185,8 @@ def seqs_to_tree(
             # print(v)
             sys.exit()
 
-        print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Updated {len(updated_phylos)} of {len(diag_db)} Reference Phylogenies', end = '\r')
-        updated_phylos[k] = seqs_to_ref_tree(
+        print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Updated {len(updated_jplace)} of {len(diag_db)} Reference Phylogenies', end = '\r')
+        updated_jplace[k] = seqs_to_ref_tree(
                                 outdir,
                                 v[-1],
                                 v[1],
@@ -204,6 +194,6 @@ def seqs_to_tree(
                                 threads
                                 )
 
-    print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Updated {len(updated_phylos)} of {len(diag_db)} Reference Phylogenies')
+    print(f'[{timedelta(seconds = round(time.time()-start_time))}]  Updated {len(updated_jplace)} of {len(diag_db)} Reference Phylogenies')
 
-    return updated_phylos
+    return updated_jplace
